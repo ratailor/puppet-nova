@@ -210,16 +210,18 @@ class nova::migration::libvirt(
   }
 
   if $configure_libvirt {
-    Anchor['nova::config::begin']
-    -> Libvirtd_config<||>
-    -> File_line<| tag == 'libvirt-file_line'|>
-    -> Anchor['nova::config::end']
+    if ! $enable_modular_libvirt_daemons {
+      Anchor['nova::config::begin']
+      -> Libvirtd_config<||>
+      -> File_line<| tag == 'libvirt-file_line'|>
+      -> Anchor['nova::config::end']
 
-    Libvirtd_config<||>
-    ~> Service['libvirt']
+      Libvirtd_config<||>
+      ~> Service['libvirt']
 
-    File_line<| tag == 'libvirt-file_line' |>
-    ~> Service['libvirt']
+      File_line<| tag == 'libvirt-file_line' |>
+      ~> Service['libvirt']
+    }
 
     if $override_uuid {
       if ! $::libvirt_uuid {
@@ -234,44 +236,124 @@ class nova::migration::libvirt(
         $host_uuid_real = $::libvirt_uuid
       }
 
-      augeas { 'libvirt-conf-uuid':
-        context => '/files/etc/libvirt/libvirtd.conf',
-        changes => [
-          "set host_uuid ${host_uuid_real}",
-        ],
-        notify  => Service['libvirt'],
-        require => Package['libvirt'],
-      }
-    }
+      if ! $enable_modular_libvirt_daemons {
+        augeas { 'libvirt-conf-uuid':
+          context => '/files/etc/libvirt/libvirtd.conf',
+          changes => [
+            "set host_uuid ${host_uuid_real}",
+          ],
+          notify  => Service['libvirt'],
+          require => Package['libvirt'],
+        }
+      } else {
+        augeas { 'virtqemu-conf-uuid':
+          context => '/files/etc/libvirt/virtqemud.conf',
+          changes => [
+            "set host_uuid ${host_uuid_real}",
+          ],
+          notify  => Service['virtqemud'],
+          require => Package['libvirt'],
+        }
 
-    libvirtd_config {
-      'listen_tls': value => $listen_tls;
-      'listen_tcp': value => $listen_tcp;
-    }
+        augeas { 'virtproxy-conf-uuid':
+          context => '/files/etc/libvirt/virtproxyd.conf',
+          changes => [
+            "set host_uuid ${host_uuid_real}",
+          ],
+          notify  => Service['virtproxyd'],
+          require => Package['libvirt'],
+        }
 
-    if $transport_real == 'tls' {
-      libvirtd_config {
-        'auth_tls': value => "\"${auth}\"";
-      }
-      if $ca_file {
-        libvirtd_config {
-          'ca_file': value => "\"${ca_file}\"";
+        augeas { 'virtsecret-conf-uuid':
+          context => '/files/etc/libvirt/virtsecretd.conf',
+          changes => [
+            "set host_uuid ${host_uuid_real}",
+          ],
+          notify  => Service['virtsecretd'],
+          require => Package['libvirt'],
+        }
+
+        augeas { 'virtnodedev-conf-uuid':
+          context => '/files/etc/libvirt/virtnodedevd.conf',
+          changes => [
+            "set host_uuid ${host_uuid_real}",
+          ],
+          notify  => Service['virtnodedevd'],
+          require => Package['libvirt'],
+        }
+
+        augeas { 'virtstorage-conf-uuid':
+          context => '/files/etc/libvirt/virtstoraged.conf',
+          changes => [
+            "set host_uuid ${host_uuid_real}",
+          ],
+          notify  => Service['virtstoraged'],
+          require => Package['libvirt'],
         }
       }
-      if $crl_file {
-        libvirtd_config {
-          'crl_file': value => "\"${crl_file}\"";
-        }
-      }
-    } elsif $transport_real == 'tcp' {
-      libvirtd_config {
-        'auth_tcp': value => "\"${auth}\"";
-      }
     }
 
-    if $listen_address {
+    if ! $enable_modular_libvirt_daemons {
       libvirtd_config {
-        'listen_addr': value => "\"${listen_address}\"";
+        'listen_tls': value => $listen_tls;
+        'listen_tcp': value => $listen_tcp;
+      }
+
+      if $transport_real == 'tls' {
+        libvirtd_config {
+          'auth_tls': value => "\"${auth}\"";
+        }
+        if $ca_file {
+          libvirtd_config {
+            'ca_file': value => "\"${ca_file}\"";
+          }
+        }
+        if $crl_file {
+          libvirtd_config {
+            'crl_file': value => "\"${crl_file}\"";
+          }
+        }
+      } elsif $transport_real == 'tcp' {
+        libvirtd_config {
+          'auth_tcp': value => "\"${auth}\"";
+        }
+      }
+
+      if $listen_address {
+        libvirtd_config {
+          'listen_addr': value => "\"${listen_address}\"";
+        }
+      }
+    } else {
+      virtproxyd_config {
+        'listen_tls': value => $listen_tls;
+        'listen_tcp': value => $listen_tcp;
+      }
+
+      if $transport_real == 'tls' {
+        virtproxyd_config {
+          'auth_tls': value => "\"${auth}\"";
+        }
+        if $ca_file {
+          virtproxyd_config {
+            'ca_file': value => "\"${ca_file}\"";
+          }
+        }
+        if $crl_file {
+          virtproxyd_config {
+            'crl_file': value => "\"${crl_file}\"";
+          }
+        }
+      } elsif $transport_real == 'tcp' {
+        virtproxyd_config {
+          'auth_tcp': value => "\"${auth}\"";
+        }
+      }
+
+      if $listen_address {
+        virtproxyd_config {
+          'listen_addr': value => "\"${listen_address}\"";
+        }
       }
     }
 
@@ -291,14 +373,23 @@ class nova::migration::libvirt(
             require => Anchor['nova::install::end']
           }
 
-          service { "libvirtd-${transport_real}":
-            ensure  => 'running',
-            name    => "libvirtd-${transport_real}.socket",
-            enable  => true,
-            require => Anchor['nova::config::end']
-          }
+          if ! $enable_modular_libvirt_daemons {
+            service { "libvirtd-${transport_real}":
+              ensure  => 'running',
+              name    => "libvirtd-${transport_real}.socket",
+              enable  => true,
+              require => Anchor['nova::config::end']
+            }
 
-          Exec['stop libvirtd.service'] -> Service["libvirtd-${transport_real}"] -> Service<| title == 'libvirt' |>
+            Exec['stop libvirtd.service'] -> Service["libvirtd-${transport_real}"] -> Service<| title == 'libvirt' |>
+          } else {
+            service { "virtproxyd-${transport_real}":
+              ensure  => 'running',
+              name    => "virtproxyd-${transport_real}.socket",
+              enable  => true,
+              require => Ancher['nova::config::end']
+          }
+            Exec['stop libvirtd.service'] -> Service["virtproxyd-%{transport_real}"] -> Service<| title == 'virtproxy' |>
         }
 
         # --listen option should be disabled in newer libvirt

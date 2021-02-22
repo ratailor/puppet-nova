@@ -38,6 +38,10 @@ class nova::params {
       $libvirt_guests_service_name       = 'libvirt-guests'
       $virtlock_service_name             = 'virtlockd'
       $virtlog_service_name              = undef
+      $virtsecret_service_name           = 'virtsecretd'
+      $virtnodedev_service_name          = 'virtnodedevd'
+      $virtqemu_service_name             = 'virtqemud'
+      $virtproxy_service_name            = 'virtproxyd'
       $scheduler_service_name            = 'openstack-nova-scheduler'
       $tgt_service_name                  = 'tgtd'
       $novajoin_service_name             = 'novajoin-server'
@@ -45,6 +49,7 @@ class nova::params {
       $vncproxy_service_name             = 'openstack-nova-novncproxy'
       $serialproxy_service_name          = 'openstack-nova-serialproxy'
       $spicehtml5proxy_service_name      = 'openstack-nova-spicehtml5proxy'
+      $enable_modular_libvirt_daemons    = false
       # redhat specific config defaults
       $root_helper                       = 'sudo nova-rootwrap'
       $lock_path                         = '/var/lib/nova/tmp'
@@ -102,6 +107,10 @@ class nova::params {
           # Use default provider on Debian
           $virtlock_service_name           = 'virtlockd'
           $virtlog_service_name            = 'virtlogd'
+          $virtsecret_service_name         = 'virtsecretd'
+          $virtnodedev_service_name        = 'virtnodedevd'
+          $virtqemu_service_name           = 'virtqemud'
+          $virtproxy_service_name          = 'virtproxyd'
         }
         default: {
           $api_metadata_service_name       = undef
@@ -112,6 +121,10 @@ class nova::params {
           # Use default provider on Debian
           $virtlock_service_name           = 'virtlockd'
           $virtlog_service_name            = 'virtlogd'
+          $virtsecret_service_name         = 'virtsecretd'
+          $virtnodedev_service_name        = 'virtnodedevd'
+          $virtqemu_service_name           = 'virtqemud'
+          $virtproxy_service_name          = 'virtproxyd'
         }
       }
       $libvirt_service_name            = 'libvirtd'

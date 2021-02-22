@@ -99,6 +99,26 @@
 #   (optional) virtlog service name.
 #   Defaults to $::nova::params::virtlog_service_name
 #
+# [*virtqemu_service_name*]
+#   (optional) virtqemu service name.
+#   Defaults to $::nova::params::virtqemu_service_name
+#
+# [*virtproxy_service_name*]
+#   (optional) virtproxy service name.
+#   Defaults to $::nova::params::virtproxy_service_name
+#
+# [*virtsercret_service_name*]
+#   (optional) virtsecret service name.
+#   Defaults to $::nova::params::virtsecret_service_name
+#
+# [*virtnodedev_service_name*]
+#   (optional) virtnodedev service name.
+#   Defaults to $::nova::params::virtnodedev_service_name
+#
+# [*virtstorage_service_name*]
+#   (optional) virtstorage service name.
+#   Defaults to $::nova::params::virtstorage_service_name
+
 # [*compute_driver*]
 #   (optional) Compute driver.
 #   Defaults to 'libvirt.LibvirtDriver'
@@ -320,6 +340,11 @@ class nova::compute::libvirt (
   $libvirt_service_name                       = $::nova::params::libvirt_service_name,
   $virtlock_service_name                      = $::nova::params::virtlock_service_name,
   $virtlog_service_name                       = $::nova::params::virtlog_service_name,
+  $virtqemu_service_name                      = $::nova::params::virtqemu_service_name,
+  $virtproxy_service_name                     = $::nova::params::virtproxy_service_name,
+  $virtsecret_service_name                    = $::nova::params::virtsecret_service_name,
+  $virtnodedev_service_name                   = $::nova::params::virtnodedev_service_name,
+  $virtstorage_service_name                   = $::nova::params::virtstorage_service_name,
   $compute_driver                             = 'libvirt.LibvirtDriver',
   $preallocate_images                         = $::os_service_default,
   $manage_libvirt_services                    = true,
@@ -520,13 +545,25 @@ in a future release. Use the enabled_perf_events parameter instead')
     }
   }
 
-  if $tls_priority {
-    libvirtd_config {
-      'tls_priority': value => "\"${tls_priority}\"";
+  if $enable_modular_libvirt_daemons {
+    if $tls_priority {
+      virtproxyd_config {
+        'tls_priority': value => "\"${tls_priority}\"";
+      }
+    } else {
+      virtproxyd_config {
+        'tls_priority': ensure => 'absent';
+      }
     }
   } else {
-    libvirtd_config {
-      'tls_priority': ensure => 'absent';
+    if $tls_priority {
+      libvirtd_config {
+        'tls_priority': value => "\"${tls_priority}\"";
+      }
+    } else {
+      libvirtd_config {
+        'tls_priority': ensure => 'absent';
+      }
     }
   }
 
@@ -563,10 +600,15 @@ in a future release. Use the enabled_perf_events parameter instead')
   #    ::nova::compute::libvirt::*_service_name parameters.
   if $manage_libvirt_services {
     class { 'nova::compute::libvirt::services':
-      libvirt_service_name  => $libvirt_service_name,
-      virtlock_service_name => $virtlock_service_name,
-      virtlog_service_name  => $virtlog_service_name,
-      libvirt_virt_type     => $virt_type_real,
+      libvirt_service_name     => $libvirt_service_name,
+      virtlock_service_name    => $virtlock_service_name,
+      virtlog_service_name     => $virtlog_service_name,
+      virtqemu_service_name    => $virtqemu_service_name,
+      virtproxy_service_name   => $virtproxy_service_name,
+      virtsecret_service_name  => $virtsecret_service_name,
+      virtnodedev_service_name => $virtnodedev_service_name,
+      virtstorage_service_name => $virtstorage_service_name,
+      libvirt_virt_type        => $virt_type_real,
     }
   }
 
